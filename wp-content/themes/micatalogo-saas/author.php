@@ -15,15 +15,26 @@ $logo_url = $logo_id ? wp_get_attachment_image_url( $logo_id, 'thumbnail' ) : ''
 
 $exchange_rate = get_user_meta( $vendor_id, 'exchange_rate', true ) ?: 36.5;
 
-// Consulta de productos del vendedor
+// Consulta de productos del vendedor desde la tabla personalizada (Caché implementado)
+global $wpdb;
+$table_name = $wpdb->prefix . 'mc_productos';
+$transient_key = 'mc_vendor_products_' . $vendor_id;
+$vendor_products = get_transient( $transient_key );
+
+if ( false === $vendor_products ) {
+    $vendor_products = $wpdb->get_results( $wpdb->prepare( 
+        "SELECT * FROM $table_name WHERE vendor_id = %d AND status = 'publish' ORDER BY created_at DESC", 
+        $vendor_id 
+    ) );
+    set_transient( $transient_key, $vendor_products, 12 * HOUR_IN_SECONDS );
+}
+
+// Paginación básica (Simulada para mantener la estructura, se puede mejorar con ajax)
 $paged = ( get_query_var( 'paged' ) ) ? get_query_var( 'paged' ) : 1;
-$args = [
-    'post_type'      => 'producto',
-    'author'         => $vendor_id,
-    'posts_per_page' => 12,
-    'paged'          => $paged
-];
-$products_query = new WP_Query( $args );
+$per_page = 12;
+$total_products = count($vendor_products);
+$offset = ($paged - 1) * $per_page;
+$products_page = array_slice($vendor_products, $offset, $per_page);
 
 // Guardar los datos del vendedor para el JS del carrito
 echo '<script>
@@ -33,6 +44,23 @@ echo '<script>
         storeName: "' . esc_js($store_name) . '"
     };
 </script>';
+
+// Si se está viendo un producto específico
+if ( isset($_GET['producto']) ) {
+    $product_id = intval($_GET['producto']);
+    $product = null;
+    foreach ($vendor_products as $p) {
+        if ( (int)$p->id === $product_id ) {
+            $product = $p;
+            break;
+        }
+    }
+    
+    if ( $product ) {
+        require get_stylesheet_directory() . "/single-producto.php";
+        exit;
+    }
+}
 
 // Determinar qué plantilla cargar
 $template_choice = get_user_meta( $vendor_id, 'store_template', true );
@@ -49,7 +77,7 @@ if ( file_exists( $template_file ) ) {
     // Fallback de seguridad si no existe el archivo
     require get_stylesheet_directory() . "/templates/store-moderna.php";
 }
-wp_reset_postdata();
+// Ya no necesitamos wp_reset_postdata()
 ?>
 
 <!-- Carrito Flotante (Compartido para todas las plantillas) -->

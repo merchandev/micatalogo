@@ -19,17 +19,19 @@
 
     <!-- Grid Limpio de Productos -->
     <section class="store-catalog" style="padding: 0 40px 80px 40px;">
-        <?php if ( $products_query->have_posts() ) : ?>
+        <?php if ( !empty($products_page) ) : ?>
             <div class="products-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 60px 40px;">
-                <?php while ( $products_query->have_posts() ) : $products_query->the_post(); 
-                    $price = get_post_meta( get_the_ID(), '_price', true );
+                <?php foreach ( $products_page as $product ) : 
+                    $price = $product->price;
                     $price_bs = (float)$price * (float)$exchange_rate;
+                    $permalink = get_author_posts_url($vendor_id) . '?producto=' . $product->id;
+                    $image_url = $product->image_id ? wp_get_attachment_image_url($product->image_id, 'large') : '';
                 ?>
                     <article class="product-item reveal-up" style="display: flex; flex-direction: column;">
-                        <a href="<?php the_permalink(); ?>" class="product-link" style="text-decoration: none; display: block; margin-bottom: 20px;">
+                        <a href="<?php echo esc_url($permalink); ?>" class="product-link" style="text-decoration: none; display: block; margin-bottom: 20px;">
                             <div class="product-image" style="position: relative; overflow: hidden; padding-bottom: 125%; /* 4:5 aspect ratio */">
-                                <?php if ( has_post_thumbnail() ) : ?>
-                                    <img src="<?php echo get_the_post_thumbnail_url(get_the_ID(), 'large'); ?>" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);">
+                                <?php if ( $image_url ) : ?>
+                                    <img src="<?php echo esc_url($image_url); ?>" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);">
                                 <?php else : ?>
                                     <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #111; display:flex; align-items:center; justify-content:center; color:#444;">Sin Imagen</div>
                                 <?php endif; ?>
@@ -38,8 +40,8 @@
                         
                         <div class="product-info" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
                             <div style="flex: 1;">
-                                <a href="<?php the_permalink(); ?>" style="text-decoration: none; color: inherit;">
-                                    <h3 style="font-size: 1rem; margin: 0 0 8px 0; color: #fff; font-weight: 400;"><?php the_title(); ?></h3>
+                                <a href="<?php echo esc_url($permalink); ?>" style="text-decoration: none; color: inherit;">
+                                    <h3 style="font-size: 1rem; margin: 0 0 8px 0; color: #fff; font-weight: 400;"><?php echo esc_html($product->title); ?></h3>
                                 </a>
                                 <div class="product-price" style="font-size: 0.9rem; color: #888; display: flex; gap: 8px;">
                                     <span>$<?php echo number_format((float)$price, 2); ?></span>
@@ -49,8 +51,8 @@
                             </div>
                             
                             <button type="button" class="add-to-cart-btn" 
-                                data-id="<?php the_ID(); ?>" 
-                                data-title="<?php echo esc_attr(get_the_title()); ?>" 
+                                data-id="<?php echo esc_attr($product->id); ?>" 
+                                data-title="<?php echo esc_attr($product->title); ?>" 
                                 data-price="<?php echo esc_attr($price); ?>"
                                 data-pricebs="<?php echo esc_attr($price_bs); ?>"
                                 style="background: none; border: none; color: #fff; cursor: pointer; padding: 8px; margin: -8px; border-radius: 50%; transition: background 0.3s;"
@@ -59,13 +61,15 @@
                             </button>
                         </div>
                     </article>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             </div>
             
             <div class="pagination" style="margin-top: 80px; text-align: center;">
                 <?php 
+                $total_pages = ceil($total_products / $per_page);
                 echo paginate_links( array(
-                    'total' => $products_query->max_num_pages,
+                    'total' => $total_pages,
+                    'current' => $paged,
                     'prev_text' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:20px; height:20px; vertical-align:middle;"><path d="M15 18l-6-6 6-6"></path></svg>',
                     'next_text' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:20px; height:20px; vertical-align:middle;"><path d="M9 18l6-6-6-6"></path></svg>'
                 ) );

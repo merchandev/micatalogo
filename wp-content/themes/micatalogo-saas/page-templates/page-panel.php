@@ -150,8 +150,8 @@ $stats = $dashboard->get_stats( $user->ID );
                                     </thead>
                                     <tbody>
                                         <?php foreach ( $products as $p ) : 
-                                            $price = get_post_meta( $p->ID, '_price', true );
-                                            $thumb = get_the_post_thumbnail_url( $p->ID, 'thumbnail' );
+                                            $price = $p->price;
+                                            $thumb = $p->image_id ? wp_get_attachment_image_url($p->image_id, 'thumbnail') : '';
                                         ?>
                                         <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                                             <td style="padding: 16px 12px; display: flex; align-items: center; gap: 16px;">
@@ -160,14 +160,14 @@ $stats = $dashboard->get_stats( $user->ID );
                                                 <?php else: ?>
                                                     <div style="width:48px; height:48px; background:var(--border); border-radius:8px;"></div>
                                                 <?php endif; ?>
-                                                <strong style="color:#fff;"><?php echo esc_html($p->post_title); ?></strong>
+                                                <strong style="color:#fff;"><?php echo esc_html($p->title); ?></strong>
                                             </td>
                                             <td style="padding: 16px 12px;">$<?php echo number_format((float)$price, 2); ?></td>
                                             <td style="padding: 16px 12px; text-align: right;">
                                                 <form method="POST" action="" style="display:inline;" onsubmit="return confirm('¿Seguro que deseas eliminar este producto?');">
                                                     <?php wp_nonce_field( 'micatalogo_save_product', 'micatalogo_product_nonce' ); ?>
                                                     <input type="hidden" name="micatalogo_product_action" value="delete">
-                                                    <input type="hidden" name="product_id" value="<?php echo $p->ID; ?>">
+                                                    <input type="hidden" name="product_id" value="<?php echo esc_attr($p->id); ?>">
                                                     <button type="submit" style="background:none; border:none; color:#EF4444; cursor:pointer; font-weight:600;">Eliminar</button>
                                                 </form>
                                             </td>

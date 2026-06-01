@@ -4,12 +4,10 @@
  */
 get_header(); 
 
-$price = get_post_meta( get_the_ID(), '_price', true );
-$vendor_id = get_post_field( 'post_author', get_the_ID() );
-$store_name = get_user_meta( $vendor_id, 'store_name', true ) ?: 'La Tienda';
-$whatsapp = get_user_meta( $vendor_id, 'whatsapp_number', true );
-$exchange_rate = get_user_meta( $vendor_id, 'exchange_rate', true ) ?: 36.5;
+// $vendor_id, $store_name, $whatsapp, y $exchange_rate ya vienen de author.php
+$price = $product->price;
 $price_bs = (float)$price * (float)$exchange_rate;
+$image_url = $product->image_id ? wp_get_attachment_image_url($product->image_id, 'large') : '';
 
 // Datos para JS si queremos usar el carrito aquí también
 echo '<script>
@@ -21,8 +19,8 @@ echo '<script>
 </script>';
 
 // Preparar enlace de WhatsApp directo para este producto
-$product_title = get_the_title();
-$product_url = get_permalink();
+$product_title = $product->title;
+$product_url = get_author_posts_url($vendor_id) . '?producto=' . $product->id;
 $wa_message = urlencode("Hola {$store_name}, me interesa el producto '{$product_title}' que vi en su catálogo. ¿Me podrían dar más información?\n\nVer producto: {$product_url}");
 $wa_link = "https://wa.me/{$whatsapp}?text={$wa_message}";
 ?>
@@ -35,15 +33,15 @@ $wa_link = "https://wa.me/{$whatsapp}?text={$wa_message}";
     <div class="single-product-layout" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 60px; align-items: start;">
         
         <div class="product-gallery glass-card reveal-up" style="padding: 24px; border-radius: var(--radius-lg); background: var(--bg-card);">
-            <?php if ( has_post_thumbnail() ) : ?>
-                <?php the_post_thumbnail( 'large', ['style' => 'width:100%; height:auto; border-radius:12px; object-fit:cover; display:block;'] ); ?>
+            <?php if ( $image_url ) : ?>
+                <img src="<?php echo esc_url($image_url); ?>" alt="<?php echo esc_attr($product_title); ?>" style="width:100%; height:auto; border-radius:12px; object-fit:cover; display:block;">
             <?php else : ?>
                 <div style="width:100%; height:400px; background:var(--border); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:1.2rem;">Sin Imagen</div>
             <?php endif; ?>
         </div>
 
         <div class="product-details reveal-right">
-            <h1 style="font-size: 3rem; margin-bottom: 16px; font-weight: 800; line-height: 1.2; color: var(--text-main);"><?php the_title(); ?></h1>
+            <h1 style="font-size: 3rem; margin-bottom: 16px; font-weight: 800; line-height: 1.2; color: var(--text-main);"><?php echo esc_html($product_title); ?></h1>
             
             <div class="price" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border);">
                 <span style="font-size: 2.5rem; color: var(--primary); font-weight: 800; line-height: 1;">$<?php echo number_format((float)$price, 2); ?></span>
@@ -51,7 +49,7 @@ $wa_link = "https://wa.me/{$whatsapp}?text={$wa_message}";
             </div>
             
             <div class="description" style="color: var(--text-main); opacity: 0.9; line-height: 1.8; margin-bottom: 40px; font-size: 1.15rem;">
-                <?php the_content(); ?>
+                <?php echo wpautop( esc_html( $product->description ) ); ?>
             </div>
 
             <div class="product-actions" style="display: flex; flex-direction: column; gap: 16px;">
@@ -63,8 +61,8 @@ $wa_link = "https://wa.me/{$whatsapp}?text={$wa_message}";
 
                 <!-- Botón Añadir al Pedido (Carrito Múltiple) -->
                 <button type="button" class="button button-outline button-block add-to-cart-btn" style="padding: 18px; font-size: 1.1rem; border-radius: 12px;"
-                    data-id="<?php the_ID(); ?>" 
-                    data-title="<?php echo esc_attr(get_the_title()); ?>" 
+                    data-id="<?php echo esc_attr($product->id); ?>" 
+                    data-title="<?php echo esc_attr($product_title); ?>" 
                     data-price="<?php echo esc_attr($price); ?>"
                     data-pricebs="<?php echo esc_attr($price_bs); ?>">
                     Agregar al pedido (Múltiples productos)

@@ -17,6 +17,7 @@ define( 'MICATALOGO_CORE_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MICATALOGO_CORE_URL', plugin_dir_url( __FILE__ ) );
 
 // Setup a simple autoloader / manual requires
+require_once MICATALOGO_CORE_PATH . 'includes/class-db-setup.php';
 require_once MICATALOGO_CORE_PATH . 'includes/class-core.php';
 require_once MICATALOGO_CORE_PATH . 'includes/class-cpt.php';
 require_once MICATALOGO_CORE_PATH . 'includes/class-setup.php';
@@ -41,6 +42,12 @@ require_once MICATALOGO_CORE_PATH . 'includes/class-csv-handler.php';
 require_once MICATALOGO_CORE_PATH . 'includes/class-stats.php';
 require_once MICATALOGO_CORE_PATH . 'includes/class-wishlist.php';
 require_once MICATALOGO_CORE_PATH . 'includes/class-super-admin-dashboard.php';
+
+// Activar base de datos en la activación del plugin
+register_activation_hook( __FILE__, function() {
+    \MiCatalogo\DB_Setup::create_tables();
+    \MiCatalogo\DB_Setup::migrate_old_products();
+} );
 
 // Inicializar el núcleo cuando carguen los plugins
 add_action( 'plugins_loaded', 'micatalogo_core_init' );

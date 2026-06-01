@@ -14,7 +14,9 @@ class Vendor_Dashboard {
     }
 
     public function get_stats( $user_id ) {
-        $products_count = count_user_posts( $user_id, 'producto' );
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'mc_productos';
+        $products_count = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $table_name WHERE vendor_id = %d AND status = 'publish'", $user_id ) );
         
         // Obtener pedidos del mes reales
         $orders_query = new \WP_Query([
@@ -35,12 +37,9 @@ class Vendor_Dashboard {
             ],
         ]);
         
-        // Calcular vistas reales
-        $products = $this->get_vendor_products( $user_id );
+        // Calcular vistas (para simplificar por ahora, en una BD relacional podríamos crear tabla mc_stats o usar postmeta en pedidos)
+        // Ya no tenemos _views en metadata, así que inicializamos en 0 hasta migrar analíticas a tabla propia
         $total_views = 0;
-        foreach ( $products as $p ) {
-            $total_views += (int) get_post_meta( $p->ID, '_views', true );
-        }
         
         return [
             'views_today' => $total_views,
@@ -50,12 +49,28 @@ class Vendor_Dashboard {
     }
 
     public function get_vendor_products( $user_id ) {
-        return get_posts([
-            'post_type' => 'producto',
-            'author' => $user_id,
-            'posts_per_page' => -1,
-            'post_status' => 'publish'
-        ]);
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'mc_productos';
+        
+        // Intentar obtener de la caché (Transient API)
+        $transient_key = 'mc_vendor_products_' . $user_id;
+        $cached_products = get_transient( $transient_key );
+        
+        if ( false === $cached_products ) {
+            $cached_products = $wpdb->get_results( $wpdb->prepare( 
+                "SELECT * FROM $table_name WHERE vendor_id = %d ORDER BY created_at DESC", 
+                $user_id 
+            ) );
+            
+            // Guardar en caché por 12 horas
+            set_transient( $transient_key, $cached_products, 12 * HOUR_IN_SECONDS );
+        }
+        
+        return $cached_products;
+    }
+    
+    public function clear_vendor_cache( $user_id ) {
+        delete_transient( 'mc_vendor_products_' . $user_id );
     }
 
     public function process_product_actions() {
@@ -69,76 +84,96 @@ class Vendor_Dashboard {
 
         $user_id = get_current_user_id();
         $action = $_POST['micatalogo_product_action'];
+        
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'mc_productos';
 
         if ( $action === 'create' ) {
             $title = sanitize_text_field( $_POST['product_title'] );
             $price = floatval( $_POST['product_price'] );
             $desc = sanitize_textarea_field( $_POST['product_desc'] );
+            $image_id = 0;
             
-            $post_id = wp_insert_post([
-                'post_title' => $title,
-                'post_content' => $desc,
-                'post_type' => 'producto',
-                'post_status' => 'publish',
-                'post_author' => $user_id
-            ]);
-
-            if ( ! is_wp_error( $post_id ) ) {
-                update_post_meta( $post_id, '_price', $price );
+            if ( ! empty( $_FILES['product_image']['name'] ) ) {
+                require_once( ABSPATH . 'wp-admin/includes/image.php' );
+                require_once( ABSPATH . 'wp-admin/includes/file.php' );
+                require_once( ABSPATH . 'wp-admin/includes/media.php' );
                 
-                if ( ! empty( $_FILES['product_image']['name'] ) ) {
-                    require_once( ABSPATH . 'wp-admin/includes/image.php' );
-                    require_once( ABSPATH . 'wp-admin/includes/file.php' );
-                    require_once( ABSPATH . 'wp-admin/includes/media.php' );
-                    
-                    $attachment_id = media_handle_upload( 'product_image', $post_id );
-                    if ( ! is_wp_error( $attachment_id ) ) {
-                        set_post_thumbnail( $post_id, $attachment_id );
-                    }
+                $attachment_id = media_handle_upload( 'product_image', 0 );
+                if ( ! is_wp_error( $attachment_id ) ) {
+                    $image_id = $attachment_id;
                 }
             }
+            
+            $wpdb->insert(
+                $table_name,
+                [
+                    'vendor_id'   => $user_id,
+                    'title'       => $title,
+                    'description' => $desc,
+                    'price'       => $price,
+                    'image_id'    => $image_id,
+                    'status'      => 'publish',
+                    'created_at'  => current_time('mysql')
+                ]
+            );
+            
+            $this->clear_vendor_cache( $user_id );
+
             wp_redirect( site_url('/panel-vendedor/#productos') );
             exit;
         }
 
         if ( $action === 'edit' ) {
-            $post_id = intval( $_POST['product_id'] );
-            $post = get_post( $post_id );
+            $product_id = intval( $_POST['product_id'] );
             
-            if ( $post && intval($post->post_author) === $user_id ) {
+            // Verificar pertenencia
+            $product = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table_name WHERE id = %d AND vendor_id = %d", $product_id, $user_id ) );
+            
+            if ( $product ) {
                 $title = sanitize_text_field( $_POST['product_title'] );
                 $price = floatval( $_POST['product_price'] );
                 $desc = sanitize_textarea_field( $_POST['product_desc'] );
-                
-                wp_update_post([
-                    'ID'           => $post_id,
-                    'post_title'   => $title,
-                    'post_content' => $desc,
-                ]);
-
-                update_post_meta( $post_id, '_price', $price );
+                $image_id = $product->image_id;
                 
                 if ( ! empty( $_FILES['product_image']['name'] ) ) {
                     require_once( ABSPATH . 'wp-admin/includes/image.php' );
                     require_once( ABSPATH . 'wp-admin/includes/file.php' );
                     require_once( ABSPATH . 'wp-admin/includes/media.php' );
                     
-                    $attachment_id = media_handle_upload( 'product_image', $post_id );
+                    $attachment_id = media_handle_upload( 'product_image', 0 );
                     if ( ! is_wp_error( $attachment_id ) ) {
-                        set_post_thumbnail( $post_id, $attachment_id );
+                        $image_id = $attachment_id;
                     }
                 }
+                
+                $wpdb->update(
+                    $table_name,
+                    [
+                        'title'       => $title,
+                        'description' => $desc,
+                        'price'       => $price,
+                        'image_id'    => $image_id
+                    ],
+                    [ 'id' => $product_id, 'vendor_id' => $user_id ]
+                );
+                
+                $this->clear_vendor_cache( $user_id );
             }
             wp_redirect( site_url('/panel-vendedor/#productos') );
             exit;
         }
 
         if ( $action === 'delete' ) {
-            $post_id = intval( $_POST['product_id'] );
-            $post = get_post( $post_id );
-            if ( $post && intval($post->post_author) === $user_id ) {
-                wp_delete_post( $post_id, true );
-            }
+            $product_id = intval( $_POST['product_id'] );
+            
+            $wpdb->delete(
+                $table_name,
+                [ 'id' => $product_id, 'vendor_id' => $user_id ]
+            );
+            
+            $this->clear_vendor_cache( $user_id );
+
             wp_redirect( site_url('/panel-vendedor/#productos') );
             exit;
         }

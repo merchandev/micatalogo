@@ -71,31 +71,39 @@ class Onboarding {
 
         // Procesar el primer producto
         if ( ! empty( $_POST['first_product_name'] ) && ! empty( $_POST['first_product_price'] ) ) {
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'mc_productos';
+            
             $product_name = sanitize_text_field( $_POST['first_product_name'] );
             $product_price = floatval( $_POST['first_product_price'] );
+            $image_id = 0;
             
-            $post_id = wp_insert_post( [
-                'post_title'   => $product_name,
-                'post_type'    => 'producto',
-                'post_status'  => 'publish',
-                'post_author'  => $user_id,
-            ] );
-
-            if ( ! is_wp_error( $post_id ) ) {
-                update_post_meta( $post_id, '_price', $product_price );
+            // Procesar la imagen del primer producto
+            if ( ! empty( $_FILES['first_product_image']['name'] ) ) {
+                require_once( ABSPATH . 'wp-admin/includes/image.php' );
+                require_once( ABSPATH . 'wp-admin/includes/file.php' );
+                require_once( ABSPATH . 'wp-admin/includes/media.php' );
                 
-                // Procesar la imagen del primer producto
-                if ( ! empty( $_FILES['first_product_image']['name'] ) ) {
-                    require_once( ABSPATH . 'wp-admin/includes/image.php' );
-                    require_once( ABSPATH . 'wp-admin/includes/file.php' );
-                    require_once( ABSPATH . 'wp-admin/includes/media.php' );
-                    
-                    $product_attachment_id = media_handle_upload( 'first_product_image', $post_id );
-                    if ( ! is_wp_error( $product_attachment_id ) ) {
-                        set_post_thumbnail( $post_id, $product_attachment_id );
-                    }
+                $product_attachment_id = media_handle_upload( 'first_product_image', 0 );
+                if ( ! is_wp_error( $product_attachment_id ) ) {
+                    $image_id = $product_attachment_id;
                 }
             }
+            
+            $wpdb->insert(
+                $table_name,
+                [
+                    'vendor_id'   => $user_id,
+                    'title'       => $product_name,
+                    'description' => '',
+                    'price'       => $product_price,
+                    'image_id'    => $image_id,
+                    'status'      => 'publish',
+                    'created_at'  => current_time('mysql')
+                ]
+            );
+            
+            delete_transient( 'mc_vendor_products_' . $user_id );
         }
 
         update_user_meta( $user_id, 'whatsapp_number', $whatsapp );
