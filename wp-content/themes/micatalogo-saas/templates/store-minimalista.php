@@ -24,7 +24,7 @@
                 <?php foreach ( $products_page as $product ) : 
                     $price = $product->price;
                     $price_bs = (float)$price * (float)$exchange_rate;
-                    $permalink = get_author_posts_url($vendor_id) . '?producto=' . $product->id;
+                    $permalink = get_author_posts_url($vendor_id) . '?item=' . $product->id;
                     $image_url = $product->image_id ? wp_get_attachment_image_url($product->image_id, 'large') : '';
                 ?>
                     <article class="product-item reveal-up" style="display: flex; flex-direction: column;">

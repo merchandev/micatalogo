@@ -20,7 +20,7 @@ echo '<script>
 
 // Preparar enlace de WhatsApp directo para este producto
 $product_title = $product->title;
-$product_url = get_author_posts_url($vendor_id) . '?producto=' . $product->id;
+$product_url = get_author_posts_url($vendor_id) . '?item=' . $product->id;
 $wa_message = urlencode("Hola {$store_name}, me interesa el producto '{$product_title}' que vi en su catálogo. ¿Me podrían dar más información?\n\nVer producto: {$product_url}");
 $wa_link = "https://wa.me/{$whatsapp}?text={$wa_message}";
 ?>

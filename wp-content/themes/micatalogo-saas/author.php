@@ -46,8 +46,8 @@ echo '<script>
 </script>';
 
 // Si se está viendo un producto específico
-if ( isset($_GET['producto']) ) {
-    $product_id = intval($_GET['producto']);
+if ( isset($_GET['item']) ) {
+    $product_id = intval($_GET['item']);
     $product = null;
     foreach ($vendor_products as $p) {
         if ( (int)$p->id === $product_id ) {
