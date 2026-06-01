@@ -49,7 +49,7 @@ class Onboarding {
         if ( ! $user_id ) return;
 
         $whatsapp = sanitize_text_field( $_POST['whatsapp'] );
-        $description = sanitize_textarea_field( $_POST['description'] );
+        $description = isset($_POST['description']) ? sanitize_textarea_field( $_POST['description'] ) : '';
 
         // Procesar la subida del logo si existe
         if ( ! empty( $_FILES['store_logo']['name'] ) ) {
@@ -63,8 +63,43 @@ class Onboarding {
             }
         }
 
+        // Guardar diseño (planilla)
+        if ( isset($_POST['store_template']) ) {
+            $store_template = sanitize_text_field( $_POST['store_template'] );
+            update_user_meta( $user_id, 'store_template', $store_template );
+        }
+
+        // Procesar el primer producto
+        if ( ! empty( $_POST['first_product_name'] ) && ! empty( $_POST['first_product_price'] ) ) {
+            $product_name = sanitize_text_field( $_POST['first_product_name'] );
+            $product_price = floatval( $_POST['first_product_price'] );
+            
+            $post_id = wp_insert_post( [
+                'post_title'   => $product_name,
+                'post_type'    => 'producto',
+                'post_status'  => 'publish',
+                'post_author'  => $user_id,
+            ] );
+
+            if ( ! is_wp_error( $post_id ) ) {
+                update_post_meta( $post_id, '_price', $product_price );
+                
+                // Procesar la imagen del primer producto
+                if ( ! empty( $_FILES['first_product_image']['name'] ) ) {
+                    require_once( ABSPATH . 'wp-admin/includes/image.php' );
+                    require_once( ABSPATH . 'wp-admin/includes/file.php' );
+                    require_once( ABSPATH . 'wp-admin/includes/media.php' );
+                    
+                    $product_attachment_id = media_handle_upload( 'first_product_image', $post_id );
+                    if ( ! is_wp_error( $product_attachment_id ) ) {
+                        set_post_thumbnail( $post_id, $product_attachment_id );
+                    }
+                }
+            }
+        }
+
         update_user_meta( $user_id, 'whatsapp_number', $whatsapp );
-        update_user_meta( $user_id, 'store_description', $description );
+        if ( $description ) update_user_meta( $user_id, 'store_description', $description );
         
         // Marcar como completo
         update_user_meta( $user_id, 'onboarding_complete', true );

@@ -35,8 +35,15 @@ class Vendor_Dashboard {
             ],
         ]);
         
+        // Calcular vistas reales
+        $products = $this->get_vendor_products( $user_id );
+        $total_views = 0;
+        foreach ( $products as $p ) {
+            $total_views += (int) get_post_meta( $p->ID, '_views', true );
+        }
+        
         return [
-            'views_today' => rand(20, 150), // Todo: Implementar visitas reales a futuro
+            'views_today' => $total_views,
             'orders_month' => $orders_query->found_posts,
             'products_active' => $products_count
         ];
