@@ -14,8 +14,10 @@ $whatsapp = get_user_meta( $user->ID, 'whatsapp_number', true );
 
 // Update Appearance if submitted
 if ( isset($_POST['update_appearance']) ) {
-    $store_template = sanitize_text_field($_POST['store_template']);
-    update_user_meta($user->ID, 'store_template', $store_template);
+    if ( isset($_POST['micatalogo_appearance_nonce']) && wp_verify_nonce( $_POST['micatalogo_appearance_nonce'], 'micatalogo_update_appearance' ) ) {
+        $store_template = sanitize_text_field($_POST['store_template']);
+        update_user_meta($user->ID, 'store_template', $store_template);
+    }
 }
 
 // Instanciamos temporalmente la clase para stats
@@ -96,7 +98,7 @@ $stats = $dashboard->get_stats( $user->ID );
                             </div>
                             <div class="stat-info">
                                 <span class="stat-label">Visitas Totales</span>
-                                <span class="stat-value"><?php echo $stats['views_today']; ?></span>
+                                <span class="stat-value"><?php echo esc_html($stats['views_today']); ?></span>
                             </div>
                         </div>
                         <div class="stat-card glass-card reveal-up delay-200">
@@ -105,7 +107,7 @@ $stats = $dashboard->get_stats( $user->ID );
                             </div>
                             <div class="stat-info">
                                 <span class="stat-label">Clics a WhatsApp (Mes)</span>
-                                <span class="stat-value"><?php echo $stats['orders_month']; ?></span>
+                                <span class="stat-value"><?php echo esc_html($stats['orders_month']); ?></span>
                             </div>
                         </div>
                         <div class="stat-card glass-card reveal-up delay-300">
@@ -114,7 +116,7 @@ $stats = $dashboard->get_stats( $user->ID );
                             </div>
                             <div class="stat-info">
                                 <span class="stat-label">Productos Activos</span>
-                                <span class="stat-value"><?php echo $stats['products_active']; ?></span>
+                                <span class="stat-value"><?php echo esc_html($stats['products_active']); ?></span>
                             </div>
                         </div>
                     </div>
@@ -185,6 +187,7 @@ $stats = $dashboard->get_stats( $user->ID );
                         <h3>Personaliza tu Tienda</h3>
                         <p style="color:var(--text-muted)">Aquí podrás elegir y cambiar la plantilla de tu tienda.</p>
                         <form method="POST" action="#apariencia">
+                            <?php wp_nonce_field( 'micatalogo_update_appearance', 'micatalogo_appearance_nonce' ); ?>
                             <input type="hidden" name="update_appearance" value="1">
                             <div class="form-group" style="margin-top: 20px;">
                                 <label style="display:block; margin-bottom:8px; font-weight:500;">Planilla Seleccionada</label>
